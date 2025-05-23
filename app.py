@@ -1,13 +1,13 @@
-
 from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
-import pandas as pd
 import os
+import pandas as pd
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = "your_secret_key"
+
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -31,8 +31,6 @@ questions = [
 def index():
     session['step'] = 0
     session['answers'] = []
-    session['payslip_file'] = None
-    session['retries'] = 0
     return render_template("chat.html")
 
 @app.route("/chat", methods=["POST"])
@@ -48,51 +46,29 @@ def chat():
         if session["step"] < len(questions):
             return jsonify({"reply": questions[session['step']]})
 
-    return jsonify({"reply": "🎉 Form completed. Please upload your payslip and then click 'Submit for Validation'."})
+    return jsonify({"reply": "🎉 Form completed. Upload your payslip and click Submit."})
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"reply": "No file uploaded."})
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({"reply": "No selected file."})
-    if file:
-        filename = secure_filename(file.filename)
-        path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(path)
-        session['payslip_file'] = filename
-        return jsonify({"reply": "📁 File uploaded successfully!"})
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
+    session["payslip_file"] = file_path
+    return jsonify({"reply": "📁 Payslip uploaded!"})
 
 @app.route("/submit", methods=["GET"])
 def submit():
-    answers = session.get("answers", [])
-    payslip_file = session.get("payslip_file", None)
-    payslip_path = os.path.join(app.config['UPLOAD_FOLDER'], payslip_file) if payslip_file else None
-
-    result = ""
-    valid = True
-
     try:
-        declared_income = int(answers[9])
-        df = pd.read_excel(payslip_path)
-        payslip_income = int(df.iloc[1, 1])
+        df = pd.read_excel(session["payslip_file"])
+        declared_income = float(session["answers"][9])
+        extracted_income = float(df.iloc[1, 1])
 
-        retry_count = session.get("retries", 0)
-        if declared_income != payslip_income:
-            retry_count += 1
-            session["retries"] = retry_count
-            if retry_count >= 3:
-                result = "❌ Validation failed 3 times. 📞 A staff member will contact you."
-            else:
-                result = f"❌ Income mismatch. Attempt {retry_count}/3. Please correct and resubmit."
-        else:
-            session["retries"] = 0
-            result = "✅ Validation successful. Your data is ready for processing."
+        if abs(declared_income - extracted_income) > 10:
+            return jsonify({"result": "❌ Income mismatch. Please verify and resubmit."})
+        return jsonify({"result": "✅ Validation successful."})
     except Exception as e:
-        result = f"❌ Error reading payslip: {str(e)}"
-
-    return jsonify({"result": result})
+        return jsonify({"result": f"❌ Error: {str(e)}"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

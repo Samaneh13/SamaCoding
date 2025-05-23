@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head><title>Income Chatbot</title></head>
+<body>
+<h2>💬 Income Assistant Chatbot</h2>
+<div id="chat"></div>
+<input id="user_input" type="text">
+<button onclick="send()">Send</button>
+<script>
+  async function send() {
+    const msg = document.getElementById("user_input").value;
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "message=" + encodeURIComponent(msg)
+    });
+    const data = await res.json();
+    document.getElementById("chat").innerHTML += "<p>You: " + msg + "</p><p>Bot: " + data.reply + "</p>";
+    document.getElementById("user_input").value = "";
+  }
+</script>
+</body>
+</html>
