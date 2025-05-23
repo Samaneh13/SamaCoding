@@ -1,0 +1,53 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Income Assistant Chatbot</title>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f3f3f3; }
+        #chat-box { border: 1px solid #ccc; background: white; padding: 10px; width: 80%; height: 300px; overflow-y: scroll; margin-bottom: 10px; }
+        input[type="text"] { width: 60%; }
+    </style>
+</head>
+<body>
+    <h2>🤖 Income Assistant Chatbot</h2>
+    <div id="chat-box"></div>
+    <input type="text" id="user-input" placeholder="Type your answer..."/>
+    <button onclick="sendMessage()">Send</button>
+    <br><br>
+    <input type="file" id="file-upload"/>
+    <button onclick="uploadFile()">Upload Payslip</button>
+    <button onclick="submitValidation()">Submit for Validation</button>
+
+    <script>
+        async function sendMessage() {
+            const message = document.getElementById('user-input').value;
+            const res = await fetch("/chat", {
+                method: "POST",
+                body: new URLSearchParams({ message })
+            });
+            const data = await res.json();
+            document.getElementById('chat-box').innerHTML += `<b>You:</b> ${message}<br><b>Assistant:</b> ${data.reply}<br>`;
+            document.getElementById('user-input').value = "";
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('file-upload');
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            const res = await fetch("/upload", {
+                method: "POST",
+                body: formData
+            });
+            const data = await res.json();
+            document.getElementById('chat-box').innerHTML += `<b>Assistant:</b> ${data.reply}<br>`;
+        }
+
+        async function submitValidation() {
+            const res = await fetch("/submit");
+            const data = await res.json();
+            document.getElementById('chat-box').innerHTML += `<b>Validator:</b> ${data.result}<br>`;
+        }
+    </script>
+</body>
+</html>
